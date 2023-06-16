@@ -53,6 +53,7 @@ public class ThirdPersonMovementScript : MonoBehaviour
         if (!IsGrounded()) return;
 
             _velocity += _jumpPower;
+        Debug.Log("Jump");
 
     }
     private void ApplyRotation()
