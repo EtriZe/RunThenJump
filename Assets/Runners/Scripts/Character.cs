@@ -1,6 +1,9 @@
+using System;
 using System.Collections;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 public enum MovementState
 {
@@ -19,6 +22,9 @@ public class Character : MonoBehaviour
     public GameObject Player;
     public CapsuleCollider Capsule;
 
+    [Header("UI")]
+    public TextMeshProUGUI UIGrounded;
+    public TextMeshProUGUI UIheight;
 
     [Header("Movement")]
     public float WalkSpeed;
@@ -76,15 +82,22 @@ public class Character : MonoBehaviour
 
     void FixedUpdate() 
     {
-        IsGrounded();
         ApplyRotation();
         ApplyMovement();
-        PlayAnimation();
+        IsGrounded();
+    }
+
+    void UIRefresh()
+    {
+        UIGrounded.text = _grounded.ToString();
+        UIheight.text = (transform.position.y - 0.5).ToString("0.00");
     }
 
     // Update is called once per frame
     void Update()
     {
+        
+        UIRefresh();
         SpeedControl();
         if(_needToStandUp) CanStandUp();
     }
@@ -102,11 +115,11 @@ public class Character : MonoBehaviour
          *          Layermask id
         */
         if (Physics.BoxCast(new Vector3(Player.transform.position.x, Player.transform.position.y + 1f, Player.transform.position.z),
-                            new Vector3(Capsule.radius * 2.0f + 0.2f, 0f, Capsule.radius * 2.0f + 0.2f),
+                            new Vector3(Capsule.radius * 2.0f, 0f, Capsule.radius * 2.0f),
                             Vector3.down,
                             out hit,
                             Quaternion.Euler(0, 0, 0),
-                            _playerHeight,
+                            _playerHeight + 0.1f, //Parce que y a des variations de hauteur légère quand on se déplace donc j'ajoute une fenêtre 
                             _whatIsGround.value))
         {
             _grounded = true;
@@ -125,18 +138,15 @@ public class Character : MonoBehaviour
     {
         _input = context.ReadValue<Vector2>();
         _direction = new Vector3(_input.x, 0, _input.y);
-        State = MovementState.walking;
     }
     public void Sprint(InputAction.CallbackContext context)
     {
         if (context.ReadValueAsButton())
         {
-            State = MovementState.sprinting;
             _speed = SprintSpeed;
         }
         else
         { 
-            State = MovementState.walking;
             _speed = WalkSpeed;
         }
     }
@@ -183,13 +193,12 @@ public class Character : MonoBehaviour
     {
         if(context.ReadValueAsButton() && _readyToJump && _grounded)
         {
-                _animator.SetBool("IsJumping", true);
-                _animator.SetBool("IsGrounded", false);
+             
             Rb.velocity = new Vector3(Rb.velocity.x, 0f, Rb.velocity.z);
-                Rb.AddForce(Player.transform.up * _jumpPower, ForceMode.Impulse);
+            Rb.AddForce(Player.transform.up * _jumpPower, ForceMode.Impulse);
 
-                Invoke(nameof(ResetJump), _jumpCooldown);
-                StartCoroutine(GettingOutOfFloor());
+            Invoke(nameof(ResetJump), _jumpCooldown);
+            StartCoroutine(GettingOutOfFloor());
         }
     }
     IEnumerator GettingOutOfFloor()
@@ -207,7 +216,6 @@ public class Character : MonoBehaviour
     {
         if (context.ReadValueAsButton())
         {
-            State = MovementState.crouching;
             _speed = CrouchSpeed;
             _needToStandUp = false;
 
@@ -250,7 +258,6 @@ public class Character : MonoBehaviour
     }
     private void StandUp()
     {
-        State = MovementState.walking;
         Player.transform.localScale = new Vector3(Player.transform.localScale.x, _startYScale, Player.transform.localScale.z);
         _needToStandUp = false;
         _speed = WalkSpeed;
@@ -266,41 +273,6 @@ public class Character : MonoBehaviour
         }
     }
 
-    private void PlayAnimation()
-    {
-        MoveAnimation();
-        JumpAnimation();
-    }
-
-    private void MoveAnimation()
-    {
-        if (_input == Vector2.zero)
-        {
-            _animator.SetFloat("Speed", 0);
-        }
-        else
-        {
-            _animator.SetFloat("Speed", _speed);
-        }
-    }
-    private void JumpAnimation()
-    {
-        if (_jumping && Rb.velocity.y < -2)
-        {
-            _animator.SetBool("IsFalling", true);
-            _animator.SetBool("IsJumping", false);
-        }
-
-        else if (_jumping && _grounded)
-        {
-            _animator.SetBool("IsFalling", false);
-            _animator.SetBool("IsGrounded", true);
-            _jumping = false;
-        }
-
-        
-
-    }
 
     private bool OnSlope()
     {
