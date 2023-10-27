@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -30,7 +31,6 @@ public class Character : MonoBehaviour
     public float WalkSpeed;
     public float SprintSpeed;
     public MovementState State;
-
     private Vector3 _direction;
     private Vector2 _input;
     private Vector3 _moveDir;
@@ -62,22 +62,22 @@ public class Character : MonoBehaviour
     private bool _grounded;
 
     [Header("Slope Handling")]
-    public float maxSlopeAngle;
-    private RaycastHit slopeHit;
+    public float MaxSlopeAngle;
+    private RaycastHit _slopeHit;
 
 
     [Header("Animation")]
     [SerializeField] private Animator _animator;
 
+    [Header("StateMachine")]
+    private CharacterContext _characterContext;
 
-
-
-    private void Start() {
+    private void Start() 
+    {
+        _characterContext = new CharacterContext(new CharacterIdle(), this);
         Rb.freezeRotation = true;
         Cursor.lockState = CursorLockMode.Locked;
-
         _startYScale = Player.transform.localScale.y;
-
     }
 
     void FixedUpdate() 
@@ -96,7 +96,6 @@ public class Character : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
         UIRefresh();
         SpeedControl();
         if(_needToStandUp) CanStandUp();
@@ -122,6 +121,8 @@ public class Character : MonoBehaviour
                             _playerHeight + 0.1f, //Parce que y a des variations de hauteur légère quand on se déplace donc j'ajoute une fenêtre 
                             _whatIsGround.value))
         {
+            if (_jumping) this._characterContext.IdleRequest();
+            _jumping = false;
             _grounded = true;
             Rb.drag = _groundDrag;
         }
@@ -131,7 +132,6 @@ public class Character : MonoBehaviour
             Rb.drag = 0;
         }
     }
-
 
 
     public void Move(InputAction.CallbackContext context)
@@ -146,7 +146,7 @@ public class Character : MonoBehaviour
             _speed = SprintSpeed;
         }
         else
-        { 
+        {
             _speed = WalkSpeed;
         }
     }
@@ -170,30 +170,43 @@ public class Character : MonoBehaviour
         //To move in direction of the camera
         _moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
     }
+
     private void ApplyMovement()
     {
+        SetMovementState();
         if(OnSlope())
         {
-            Rb.AddForce(GetSlopeMoveDirection() * _speed * 5f, ForceMode.Force);
+            Rb.AddForce(GetSlopeMoveDirection() * _speed * 500f * Time.deltaTime, ForceMode.Force);
         }
         else if (_grounded)
         {
-            Rb.AddForce(_moveDir.normalized * _speed * 10f, ForceMode.Force);
+            Rb.AddForce(_moveDir.normalized * _speed * 1000f * Time.deltaTime, ForceMode.Force);
         }
         else
         {
-            Rb.AddForce(_moveDir.normalized * _speed * 10f * _airMultiplier, ForceMode.Force);
+            Rb.AddForce(_moveDir.normalized * _speed * 1000f * _airMultiplier * Time.deltaTime, ForceMode.Force);
         }
 
         Rb.useGravity = !OnSlope();
     }
 
+    private void SetMovementState()
+    {
+        if (_input == Vector2.zero)
+        {
+            _characterContext.IdleRequest();
+            return;
+        }
+
+        if (_speed == WalkSpeed) _characterContext.WalkRequest();
+        else if (_speed == SprintSpeed) _characterContext.RunRequest();
+    }
 
     public void Jump(InputAction.CallbackContext context)
     {
         if(context.ReadValueAsButton() && _readyToJump && _grounded)
         {
-             
+            _characterContext.JumpRequest();
             Rb.velocity = new Vector3(Rb.velocity.x, 0f, Rb.velocity.z);
             Rb.AddForce(Player.transform.up * _jumpPower, ForceMode.Impulse);
 
@@ -206,11 +219,8 @@ public class Character : MonoBehaviour
         yield return new WaitForSeconds(0.1f);
         _jumping = true;
     }
-    private void ResetJump()
-    {
-        _readyToJump = true;
-    }
 
+    private void ResetJump() { _readyToJump = true; }
 
     public void Crouching(InputAction.CallbackContext context)
     {
@@ -256,6 +266,7 @@ public class Character : MonoBehaviour
             StandUp();
         }
     }
+
     private void StandUp()
     {
         Player.transform.localScale = new Vector3(Player.transform.localScale.x, _startYScale, Player.transform.localScale.z);
@@ -263,9 +274,9 @@ public class Character : MonoBehaviour
         _speed = WalkSpeed;
     }
 
-    private void SpeedControl(){
+    private void SpeedControl()
+    {
         Vector3 flatVel = new Vector3(Rb.velocity.x, 0f, Rb.velocity.z);
-
         if(flatVel.magnitude > _speed)
         {
             Vector3 limitedVel = flatVel.normalized * _speed; 
@@ -276,10 +287,10 @@ public class Character : MonoBehaviour
 
     private bool OnSlope()
     {
-        if(Physics.Raycast(Player.transform.position, Vector3.down, out slopeHit, _playerHeight * 0.5f + 0.1f))
+        if(Physics.Raycast(Player.transform.position, Vector3.down, out _slopeHit, _playerHeight * 0.5f + 0.1f))
         {
-            float angle = Vector3.Angle(Vector3.up, slopeHit.normal);
-            return angle < maxSlopeAngle && angle != 0;
+            float angle = Vector3.Angle(Vector3.up, _slopeHit.normal);
+            return angle < MaxSlopeAngle && angle != 0;
         }
 
         return false;
@@ -287,8 +298,6 @@ public class Character : MonoBehaviour
 
     private Vector3 GetSlopeMoveDirection()
     {
-        return Vector3.ProjectOnPlane(_moveDir, slopeHit.normal).normalized;
+        return Vector3.ProjectOnPlane(_moveDir, _slopeHit.normal).normalized;
     }
-
-
 }
