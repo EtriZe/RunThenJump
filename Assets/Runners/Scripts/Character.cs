@@ -6,14 +6,6 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
-public enum MovementState
-{
-    walking,
-    sprinting,
-    crouching,
-    air
-}
-
 public class Character : MonoBehaviour
 {
     [Header("Character")]
@@ -30,7 +22,6 @@ public class Character : MonoBehaviour
     [Header("Movement")]
     public float WalkSpeed;
     public float SprintSpeed;
-    public MovementState State;
     private Vector3 _direction;
     private Vector2 _input;
     private Vector3 _moveDir;
@@ -39,7 +30,6 @@ public class Character : MonoBehaviour
     private float _turnSmoothTime = 0.1f;
     private float _speed = 5.0f;
 
-
     [Header("Jump")]
     [SerializeField] private float _jumpPower;
     [SerializeField] private float _jumpCooldown;
@@ -47,13 +37,11 @@ public class Character : MonoBehaviour
     private bool _readyToJump = true;
     private bool _jumping = false;
 
-
     [Header("Crouching")]
     public float CrouchSpeed;
     public float CrouchYScale;
     private float _startYScale;
     private bool _needToStandUp = false;
-
     
     [Header("Ground check")]
     [SerializeField] private float _playerHeight;
@@ -65,23 +53,29 @@ public class Character : MonoBehaviour
     public float MaxSlopeAngle;
     private RaycastHit _slopeHit;
 
-
     [Header("Animation")]
     [SerializeField] private Animator _animator;
 
-    [Header("StateMachine")]
-    private CharacterContext _characterContext;
-
     private void Start() 
     {
-        _characterContext = new CharacterContext(new CharacterIdle(), this);
         Rb.freezeRotation = true;
         Cursor.lockState = CursorLockMode.Locked;
         _startYScale = Player.transform.localScale.y;
     }
 
+    // Update is called once per frame
+    void Update()
+    {
+        UIRefresh();
+        
+        
+    }
+
+    //For physics in general
     void FixedUpdate() 
     {
+        SpeedControl();
+        if(_needToStandUp) CanStandUp();
         ApplyRotation();
         ApplyMovement();
         IsGrounded();
@@ -91,14 +85,6 @@ public class Character : MonoBehaviour
     {
         UIGrounded.text = _grounded.ToString();
         UIheight.text = (transform.position.y - 0.5).ToString("0.00");
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        UIRefresh();
-        SpeedControl();
-        if(_needToStandUp) CanStandUp();
     }
 
     private void IsGrounded()
@@ -118,10 +104,9 @@ public class Character : MonoBehaviour
                             Vector3.down,
                             out hit,
                             Quaternion.Euler(0, 0, 0),
-                            _playerHeight + 0.1f, //Parce que y a des variations de hauteur légère quand on se déplace donc j'ajoute une fenêtre 
+                            _playerHeight + 0.1f, //Parce que y a des variations de hauteur lï¿½gï¿½re quand on se dï¿½place donc j'ajoute une fenï¿½tre 
                             _whatIsGround.value))
         {
-            if (_jumping) this._characterContext.IdleRequest();
             _jumping = false;
             _grounded = true;
             Rb.drag = _groundDrag;
@@ -173,7 +158,6 @@ public class Character : MonoBehaviour
 
     private void ApplyMovement()
     {
-        SetMovementState();
         if(OnSlope())
         {
             Rb.AddForce(GetSlopeMoveDirection() * _speed * 500f * Time.deltaTime, ForceMode.Force);
@@ -190,23 +174,11 @@ public class Character : MonoBehaviour
         Rb.useGravity = !OnSlope();
     }
 
-    private void SetMovementState()
-    {
-        if (_input == Vector2.zero)
-        {
-            _characterContext.IdleRequest();
-            return;
-        }
-
-        if (_speed == WalkSpeed) _characterContext.WalkRequest();
-        else if (_speed == SprintSpeed) _characterContext.RunRequest();
-    }
 
     public void Jump(InputAction.CallbackContext context)
     {
         if(context.ReadValueAsButton() && _readyToJump && _grounded)
         {
-            _characterContext.JumpRequest();
             Rb.velocity = new Vector3(Rb.velocity.x, 0f, Rb.velocity.z);
             Rb.AddForce(Player.transform.up * _jumpPower, ForceMode.Impulse);
 
@@ -214,6 +186,8 @@ public class Character : MonoBehaviour
             StartCoroutine(GettingOutOfFloor());
         }
     }
+
+
     IEnumerator GettingOutOfFloor()
     {
         yield return new WaitForSeconds(0.1f);
