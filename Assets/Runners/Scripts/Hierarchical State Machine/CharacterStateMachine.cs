@@ -16,9 +16,9 @@ public class CharacterStateMachine : MonoBehaviour
     public GameObject player;
     public CapsuleCollider capsule;
 
-    // [Header("UI")]
-    // public TextMeshProUGUI UIGrounded;
-    // public TextMeshProUGUI UIheight;
+    [Header("UI")]
+    public TextMeshProUGUI UIGrounded;
+    public TextMeshProUGUI UIheight;
 
     [Header("Movement")]
     public float WalkSpeed;
@@ -74,6 +74,7 @@ public class CharacterStateMachine : MonoBehaviour
     public float GroundDrag { get { return _groundDrag; } set { _groundDrag = value; } }
     public float JumpCooldown { get { return _jumpCooldown; } }
     public bool ReadyToJump { get { return _readyToJump; } set { _readyToJump = value; } }
+    public bool Jumping { get { return _jumping; } set { _jumping = value; } }
 
     // Start is called before the first frame update
     void Start()
@@ -92,7 +93,7 @@ public class CharacterStateMachine : MonoBehaviour
     void Update()
     {
         _currentState.UpdateState();
-        Debug.Log(rb.drag);
+        UIRefresh();
     }
     
     void FixedUpdate()
@@ -101,6 +102,12 @@ public class CharacterStateMachine : MonoBehaviour
         ApplyRotation();
         ApplyMovement();
         IsGrounded();
+    }
+
+    void UIRefresh()
+    {
+        UIGrounded.text = _grounded.ToString();
+        UIheight.text = (transform.position.y - 0.5).ToString("0.00");
     }
 
     public void Move(InputAction.CallbackContext context)
@@ -197,18 +204,27 @@ public class CharacterStateMachine : MonoBehaviour
          *          Layermask id
         */
         if (Physics.BoxCast(new Vector3(player.transform.position.x, player.transform.position.y + 1f, player.transform.position.z),
-                            new Vector3(capsule.radius * 2.0f, 0f, capsule.radius * 2.0f),
+                            new Vector3(capsule.radius * 2.0f + 0.2f, 0f, capsule.radius * 2.0f + 0.2f),
                             Vector3.down,
                             out hit,
                             Quaternion.Euler(0, 0, 0),
                             _playerHeight + 0.1f, //Parce que y a des variations de hauteur l�g�re quand on se d�place donc j'ajoute une fen�tre 
                             _whatIsGround.value))
         {
-            _grounded = true;
+            if(_jumping)
+            {
+                _grounded = true;
+                _jumping = false;
+            }
+            Rb.drag = _groundDrag;
+
+
         }
         else
         {
             _grounded = false;
+            Rb.drag = 0;
         }
+
     }
 }

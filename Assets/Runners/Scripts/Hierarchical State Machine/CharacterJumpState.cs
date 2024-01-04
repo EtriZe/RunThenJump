@@ -34,12 +34,20 @@ public class CharacterJumpState : CharacterBaseState
         _ctx.ReadyToJump = false;
         _ctx.Rb.velocity = new Vector3(_ctx.Rb.velocity.x, 0f, _ctx.Rb.velocity.z);
         _ctx.Rb.AddForce(_ctx.Player.transform.up * _ctx.JumpPower, ForceMode.Impulse);
+        _ctx.StartCoroutine(GettingOutOfFloor());
         _ctx.StartCoroutine(Cooldown());
+
     }
 
     IEnumerator Cooldown()
     {
         yield return new WaitForSeconds(0.25f);
         _ctx.ReadyToJump = true;
+    }
+
+    IEnumerator GettingOutOfFloor()
+    {
+        yield return new WaitForSeconds(0.1f);
+        _ctx.Jumping = true;
     }
 }

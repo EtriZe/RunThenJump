@@ -9,14 +9,14 @@ public class CharacterGroundedState : CharacterBaseState
         : base(currentContext, playerStateFactory)
     {}
     public override void EnterState(){
-       // _ctx.Rb.drag = _ctx.GroundDrag;
+           // _ctx.Rb.drag = _ctx.GroundDrag;
     }
     public override void UpdateState()
     {
         CheckSwitchStates();
     }
     public override void ExitState(){
-       // _ctx.Rb.drag = 0;
+          //  _ctx.Rb.drag = 0;
     }
     public override void CheckSwitchStates(){
         //if player is grounded and jump is pressed, switch to jump state
